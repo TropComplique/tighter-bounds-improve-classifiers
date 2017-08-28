@@ -12,6 +12,7 @@ def get_data():
     # all columns but last
     all_vars = T.columns[:-1]
 
+    # standardize
     P.loc[:, num_vars] = (P.loc[:, num_vars] - T[num_vars].mean())/T[num_vars].std()
     V.loc[:, num_vars] = (V.loc[:, num_vars] - T[num_vars].mean())/T[num_vars].std()
     T.loc[:, num_vars] = (T.loc[:, num_vars] - T[num_vars].mean())/T[num_vars].std()

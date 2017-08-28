@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.init as init
 
 
+# a building block of a fully-connected feedforward neural network
 class block(nn.Module):
     def __init__(self, in_features, out_features, drop_rate):
         super(block, self).__init__()
