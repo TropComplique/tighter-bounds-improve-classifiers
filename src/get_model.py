@@ -27,7 +27,7 @@ class Network(nn.Module):
         super(Network, self).__init__()
 
         architecture.insert(0, input_dim)
-        self.features = nn.ModuleList([
+        self.features = nn.Sequential(*[
             block(in_features, out_features, drop_rate)
             for in_features, out_features, drop_rate in
             zip(architecture, architecture[1:], dropout)

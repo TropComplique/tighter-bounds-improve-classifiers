@@ -2,21 +2,23 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 import time
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
-def _recompute_sample_weights(iterator):
-    x = Variable(iterator.dataset.data_tensor.cuda(), volatile=True)
-    y = Variable(iterator.dataset.target_tensor.cuda(), volatile=True)
+def _recompute_sample_weights(iterator, model):
+    # add cuda here
+    x = Variable(iterator.dataset.data_tensor, volatile=True)
+    y = Variable(iterator.dataset.target_tensor, volatile=True)
     logits = model(x)
     predictions = torch.gather(F.softmax(logits), 1, y.view(-1, 1)).cpu()
     iterator.dataset.sample_weights_tensor = predictions.data
 
 
 def _optimization_step(model, criterion, optimizer, x_batch, y_batch, w_batch):
-
-    x_batch = Variable(x_batch.cuda())
-    y_batch = Variable(y_batch.cuda(async=True))
-    w_batch = Variable(w_batch.cuda(async=True))
+    # add cuda here
+    x_batch = Variable(x_batch)
+    y_batch = Variable(y_batch)
+    w_batch = Variable(w_batch)
     logits = model(x_batch)
 
     # compute logloss and weighted logloss
@@ -95,14 +97,14 @@ def train(model, criterion, optimizer,
             if not is_reduce_on_plateau:
                 lr_scheduler.step()
             else:
-                lr_scheduler.step(test_accuracy)
+                lr_scheduler.step(val_accuracy)
 
         if (epoch + 1) % reweight_epoch == 0:
             print('reweighting!')
             # compute new weights for training data
-            _recompute_sample_weights(train_iterator)
+            _recompute_sample_weights(train_iterator, model)
             # compute new weights for val data
-            _recompute_sample_weights(val_iterator)
+            _recompute_sample_weights(val_iterator, model)
 
         running_loss = 0.0
         running_weighted_loss = 0.0
@@ -114,7 +116,7 @@ def train(model, criterion, optimizer,
 
 
 def _accuracy(true, pred):
-    _, argmax = torch.max(pred)
+    _, argmax = torch.max(pred, dim=1)
     correct = true.eq(argmax)
     return correct.float().mean().data[0]
 
@@ -127,17 +129,17 @@ def _evaluate(model, criterion, val_iterator, n_validation_batches):
     total_samples = 0
 
     for j, (x_batch, y_batch, w_batch) in enumerate(val_iterator):
-
-        x_batch = Variable(x_batch.cuda(), volatile=True)
-        y_batch = Variable(y_batch.cuda(async=True), volatile=True)
-        w_batch = Variable(w_batch.cuda(async=True), volatile=True)
+        # add cuda here
+        x_batch = Variable(x_batch, volatile=True)
+        y_batch = Variable(y_batch, volatile=True)
+        w_batch = Variable(w_batch, volatile=True)
         n_batch_samples = y_batch.size()[0]
         logits = model(x_batch)
 
         # compute logloss and weighted logloss
-        loss, weighted_loss = criterion(logits, y_batch, w_batch)
-        batch_loss = loss.data[0]
-        batch_weighted_loss = weighted_loss.data[0]
+        loss_var, weighted_loss_var = criterion(logits, y_batch, w_batch)
+        batch_loss = loss_var.data[0]
+        batch_weighted_loss = weighted_loss_var.data[0]
 
         # compute accuracy
         pred = F.softmax(logits)
